@@ -4,6 +4,7 @@
 
 using IdentityModel.AspNetCore.OAuth2Introspection;
 using IdentityServer4.AccessTokenValidation;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Http;
 using System;
@@ -13,13 +14,11 @@ using System.Net.Http;
 
 namespace Microsoft.AspNetCore.Builder
 {
-    public class IdentityServerAuthenticationOptions : AuthenticationOptions
+    public class IdentityServerAuthenticationOptions : AuthenticationSchemeOptions
     {
         public IdentityServerAuthenticationOptions()
         {
-            AuthenticationScheme = "Bearer";
-            AutomaticAuthenticate = true;
-            AutomaticChallenge = true;
+         
         }
 
         /// <summary>
@@ -120,7 +119,7 @@ namespace Microsoft.AspNetCore.Builder
         /// <summary>
         /// events for JWT middleware
         /// </summary>
-        public IJwtBearerEvents JwtBearerEvents { get; set; } = new JwtBearerEvents();
+        public JwtBearerEvents JwtBearerEvents { get; set; } = new JwtBearerEvents();
 
         /// <summary>
         /// Specifies how often the cached copy of the discovery document should be refreshed.

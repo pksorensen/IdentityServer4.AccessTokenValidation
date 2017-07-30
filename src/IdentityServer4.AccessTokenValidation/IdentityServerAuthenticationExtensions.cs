@@ -3,25 +3,64 @@
 
 
 using IdentityServer4.AccessTokenValidation;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using System;
 using System.Linq;
 
 namespace Microsoft.AspNetCore.Builder
 {
     public static class IdentityServerAuthenticationExtensions
     {
-        public static IApplicationBuilder UseIdentityServerAuthentication(this IApplicationBuilder app, IdentityServerAuthenticationOptions options)
+
+        public static IServiceCollection AddIdentityServerAuthentication(this IServiceCollection services) => services.AddIdentityServerAuthentication(IdentityServerAuthenticationDefaults.AuthenticationScheme);
+
+        public static IServiceCollection AddIdentityServerAuthentication(this IServiceCollection services, string authenticationScheme) => services.AddIdentityServerAuthentication(authenticationScheme, configureOptions: null);
+
+        public static IServiceCollection AddIdentityServerAuthentication(this IServiceCollection services, Action<IdentityServerAuthenticationOptions> configureOptions) =>
+            services.AddIdentityServerAuthentication(IdentityServerAuthenticationDefaults.AuthenticationScheme, configureOptions);
+
+        public static IServiceCollection AddIdentityServerAuthentication(this IServiceCollection services, string authenticationScheme, Action<IdentityServerAuthenticationOptions> configureOptions)
         {
-            app.Validate(options);
+            services.TryAddEnumerable(ServiceDescriptor.Singleton<IPostConfigureOptions<OAuth2IntrospectionOptions>, CombinedAuthenticationOptions>(sp=>sp.GetService< CombinedAuthenticationOptions>()));
+            services.TryAddEnumerable(ServiceDescriptor.Singleton<IPostConfigureOptions<JwtBearerOptions>, CombinedAuthenticationOptions>(sp => sp.GetService<CombinedAuthenticationOptions>()));
 
-            var combinedOptions = CombinedAuthenticationOptions.FromIdentityServerAuthenticationOptions(options);
-            app.UseIdentityServerAuthentication(combinedOptions);
+            services.TryAddEnumerable(ServiceDescriptor.Singleton<IPostConfigureOptions<IdentityServerAuthenticationOptions>, PostConfigureIdentityServerAuthenticationOptions>());
 
-            return app;
+          //  services.AddSingleton((sp) => Options.Create( sp.GetService<CombinedAuthenticationOptions>().IntrospectionOptions));
+           // services.AddSingleton((sp) => Options.Create( sp.GetService<CombinedAuthenticationOptions>().JwtBearerOptions));
+            services.AddSingleton((sp) => CombinedAuthenticationOptions.FromIdentityServerAuthenticationOptions(authenticationScheme,
+                sp.GetService<IOptions<IdentityServerAuthenticationOptions>>().Value));
+
+            services.Configure(configureOptions);
+
+            services.AddOAuth2IntrospectionAuthentication("oidc-introspection-bearer");
+            services.AddJwtBearerAuthentication("oidc-jwt-bearer",(o)=> {
+
+            });
+             
+
+            return services.AddScheme<IdentityServerAuthenticationOptions, IdentityServerAuthenticationHandler>(authenticationScheme, configureOptions);
         }
 
-        public static IApplicationBuilder UseIdentityServerAuthentication(this IApplicationBuilder app, CombinedAuthenticationOptions options)
+        //public static IApplicationBuilder UseIdentityServerAuthentication(this IApplicationBuilder app)
+        //{
+        //    var options = app.ApplicationServices.GetService<IOptions<IdentityServerAuthenticationOptions>>();
+
+        //    app.Validate(options.Value);
+
+        //    var combinedOptions = CombinedAuthenticationOptions.FromIdentityServerAuthenticationOptions(options);
+        //    app.UseIdentityServerAuthentication(combinedOptions);
+
+        //    return app;
+        //}
+
+        public static IApplicationBuilder UseIdentityServerAuthentication(this IApplicationBuilder app)
         {
+            var options = app.ApplicationServices.GetService<CombinedAuthenticationOptions>();
             app.UseMiddleware<IdentityServerAuthenticationMiddleware>(app, options);
 
             if (options.ScopeValidationOptions.AllowedScopes.Any())
@@ -32,16 +71,9 @@ namespace Microsoft.AspNetCore.Builder
             return app;
         }
 
-        internal static void Validate(this IApplicationBuilder app, IdentityServerAuthenticationOptions options)
-        {
-            var loggerFactory = app.ApplicationServices.GetService(typeof(ILoggerFactory)) as ILoggerFactory;
-            if (loggerFactory == null) return;
+        //internal static void Validate(this IApplicationBuilder app, IdentityServerAuthenticationOptions options)
+        //{
 
-            var logger = loggerFactory.CreateLogger("IdentityServer4.AccessTokenValidation.Startup");
-            if (string.IsNullOrEmpty(options.ApiName) && !options.AllowedScopes.Any())
-            {
-                logger.LogInformation("Neither an ApiName nor allowed scopes are configured. It is recommended to configure some audience checking.");
-            }
-        }
+        //}
     }
 }

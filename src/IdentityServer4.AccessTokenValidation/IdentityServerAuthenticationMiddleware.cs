@@ -2,7 +2,8 @@
 // Licensed under the Apache License, Version 2.0. See LICENSE in the project root for license information.
 
 
-using IdentityServer4.AccessTokenValidation.Infrastructure;
+//using IdentityServer4.AccessTokenValidation.Infrastructure;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
@@ -18,95 +19,30 @@ namespace IdentityServer4.AccessTokenValidation
 
         private readonly ILogger<IdentityServerAuthenticationMiddleware> _logger;
         private readonly CombinedAuthenticationOptions _options;
-
-        private readonly RequestDelegate _introspectionNext;
-        private readonly RequestDelegate _jwtNext;
-        private readonly RequestDelegate _nopNext;
+        private readonly RequestDelegate _next;
 
         public IdentityServerAuthenticationMiddleware(RequestDelegate next, IApplicationBuilder app, CombinedAuthenticationOptions options, ILogger<IdentityServerAuthenticationMiddleware> logger)
         {
             _options = options;
             _logger = logger;
-
-            // building pipeline for introspection middleware
-            if (options.IntrospectionOptions != null)
-            {
-                var introspectionBuilder = app.New();
-                introspectionBuilder.UseOAuth2IntrospectionAuthentication(options.IntrospectionOptions);
-                introspectionBuilder.Run(ctx => next(ctx));
-                _introspectionNext = introspectionBuilder.Build();
-            }
-
-            // building pipeline for JWT bearer middleware
-            if (options.JwtBearerOptions != null)
-            {
-                var jwtBuilder = app.New();
-                jwtBuilder.UseJwtBearerAuthentication(options.JwtBearerOptions);
-                jwtBuilder.Run(ctx => next(ctx));
-                _jwtNext = jwtBuilder.Build();
-            }
-
-            // building pipeline for no token
-            var nopBuilder = app.New();
-
-            nopBuilder.UseMiddleware<NopAuthenticationMiddleware>(Options.Create(options.PassThruOptions));
-            nopBuilder.Run(ctx => next(ctx));
-            _nopNext = nopBuilder.Build();
+            _next = next;
         }
 
         public async Task Invoke(HttpContext context)
         {
-            var token = _options.TokenRetriever(context.Request);
-            bool removeToken = false;
-
-            try
+            var result = await context.AuthenticateAsync(_options.AuthenticationScheme);
+            if (result.Succeeded)
             {
-                if (token != null)
-                {
-                    removeToken = true;
+                context.User = result.Principal;
 
-                    context.Items.Add(_tokenKey, token);
-
-                    // seems to be a JWT
-                    if (token.Contains('.'))
-                    {
-                        // see if local validation is setup
-                        if (_jwtNext != null)
-                        {
-                            await _jwtNext(context);
-                            return;
-                        }
-                        // otherwise use introspection endpoint
-                        if (_introspectionNext != null)
-                        {
-                            await _introspectionNext(context);
-                            return;
-                        }
-
-                        _logger.LogWarning("No validator configured for JWT token");
-                    }
-                    else
-                    {
-                        // use introspection endpoint
-                        if (_introspectionNext != null)
-                        {
-                            await _introspectionNext(context);
-                            return;
-                        }
-
-                        _logger.LogWarning("No validator configured for reference token. Ensure ApiName and ApiSecret have been configured to use introspection.");
-                    }
-                }
-
-                await _nopNext(context);
             }
-            finally
-            {
-                if (removeToken)
-                {
-                    context.Items.Remove(_tokenKey);
-                }
-            }
+            //else
+            //{
+
+            //    context.Response.StatusCode = 401;
+            //    context.Response.Headers.Add("WWW-Authenticate", new[] { $"Bearer error=\"{result.Failure.Message}\"" });
+            //}
+            await _next(context);
         }
     }
 }
