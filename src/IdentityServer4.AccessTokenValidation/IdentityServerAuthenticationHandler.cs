@@ -20,7 +20,7 @@ namespace Microsoft.AspNetCore.Builder
         private readonly ILogger<IdentityServerAuthenticationHandler> _logger;
 
         public IdentityServerAuthenticationHandler(
-            IOptionsSnapshot<IdentityServerAuthenticationOptions> options,
+            IOptionsMonitor<IdentityServerAuthenticationOptions> options,
             ILoggerFactory logger, 
             UrlEncoder encoder,
             ISystemClock clock,
@@ -51,12 +51,12 @@ namespace Microsoft.AspNetCore.Builder
                     {
                         // see if local validation is setup
                         var result = await Context.AuthenticateAsync("oidc-jwt-bearer");
-                        if (!result.Nothing)
+                        if (!result.None)
                             return result;
 
                         // otherwise use introspection endpoint
                         result = await Context.AuthenticateAsync("oidc-introspection-bearer");
-                        if (!result.Nothing)
+                        if (!result.None)
                             return result;
 
                         _logger.LogWarning("No validator configured for JWT token");
@@ -65,7 +65,7 @@ namespace Microsoft.AspNetCore.Builder
                     {
                         // use introspection endpoint
                         var result = await Context.AuthenticateAsync("oidc-introspection-bearer");
-                        if (!result.Nothing)
+                        if (!result.None)
                             return result;
 
                         _logger.LogWarning("No validator configured for reference token. Ensure ApiName and ApiSecret have been configured to use introspection.");

@@ -3,6 +3,7 @@
 
 
 using IdentityServer4.AccessTokenValidation;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -16,34 +17,37 @@ namespace Microsoft.AspNetCore.Builder
     public static class IdentityServerAuthenticationExtensions
     {
 
-        public static IServiceCollection AddIdentityServerAuthentication(this IServiceCollection services) => services.AddIdentityServerAuthentication(IdentityServerAuthenticationDefaults.AuthenticationScheme);
+        public static AuthenticationBuilder AddIdentityServerAuthentication(this AuthenticationBuilder builder)
+            => builder.AddIdentityServerAuthentication(IdentityServerAuthenticationDefaults.AuthenticationScheme);
 
-        public static IServiceCollection AddIdentityServerAuthentication(this IServiceCollection services, string authenticationScheme) => services.AddIdentityServerAuthentication(authenticationScheme, configureOptions: null);
+        public static AuthenticationBuilder AddIdentityServerAuthentication(this AuthenticationBuilder builder, string authenticationScheme)
+            => builder.AddIdentityServerAuthentication(authenticationScheme, configureOptions: null);
 
-        public static IServiceCollection AddIdentityServerAuthentication(this IServiceCollection services, Action<IdentityServerAuthenticationOptions> configureOptions) =>
-            services.AddIdentityServerAuthentication(IdentityServerAuthenticationDefaults.AuthenticationScheme, configureOptions);
+        public static AuthenticationBuilder AddIdentityServerAuthentication(this AuthenticationBuilder builder, Action<IdentityServerAuthenticationOptions> configureOptions) =>
+            builder.AddIdentityServerAuthentication(IdentityServerAuthenticationDefaults.AuthenticationScheme, configureOptions);
 
-        public static IServiceCollection AddIdentityServerAuthentication(this IServiceCollection services, string authenticationScheme, Action<IdentityServerAuthenticationOptions> configureOptions)
+        public static AuthenticationBuilder AddIdentityServerAuthentication(this AuthenticationBuilder builder, string authenticationScheme, Action<IdentityServerAuthenticationOptions> configureOptions)
         {
-            services.TryAddEnumerable(ServiceDescriptor.Singleton<IPostConfigureOptions<OAuth2IntrospectionOptions>, CombinedAuthenticationOptions>(sp=>sp.GetService< CombinedAuthenticationOptions>()));
-            services.TryAddEnumerable(ServiceDescriptor.Singleton<IPostConfigureOptions<JwtBearerOptions>, CombinedAuthenticationOptions>(sp => sp.GetService<CombinedAuthenticationOptions>()));
+            builder.Services.TryAddEnumerable(ServiceDescriptor.Singleton<IPostConfigureOptions<OAuth2IntrospectionOptions>, CombinedAuthenticationOptions>(sp=>sp.GetService< CombinedAuthenticationOptions>()));
+            builder.Services.TryAddEnumerable(ServiceDescriptor.Singleton<IPostConfigureOptions<JwtBearerOptions>, CombinedAuthenticationOptions>(sp => sp.GetService<CombinedAuthenticationOptions>()));
+            builder.Services.TryAddEnumerable(ServiceDescriptor.Singleton<IPostConfigureOptions<IdentityServerAuthenticationOptions>, PostConfigureIdentityServerAuthenticationOptions>());
 
-            services.TryAddEnumerable(ServiceDescriptor.Singleton<IPostConfigureOptions<IdentityServerAuthenticationOptions>, PostConfigureIdentityServerAuthenticationOptions>());
-
-          //  services.AddSingleton((sp) => Options.Create( sp.GetService<CombinedAuthenticationOptions>().IntrospectionOptions));
-           // services.AddSingleton((sp) => Options.Create( sp.GetService<CombinedAuthenticationOptions>().JwtBearerOptions));
-            services.AddSingleton((sp) => CombinedAuthenticationOptions.FromIdentityServerAuthenticationOptions(authenticationScheme,
+            //  services.AddSingleton((sp) => Options.Create( sp.GetService<CombinedAuthenticationOptions>().IntrospectionOptions));
+            // services.AddSingleton((sp) => Options.Create( sp.GetService<CombinedAuthenticationOptions>().JwtBearerOptions));
+            builder.Services.AddSingleton((sp) => CombinedAuthenticationOptions.FromIdentityServerAuthenticationOptions(authenticationScheme,
                 sp.GetService<IOptions<IdentityServerAuthenticationOptions>>().Value));
 
-            services.Configure(configureOptions);
+            builder.Services.Configure(configureOptions);
 
-            services.AddOAuth2IntrospectionAuthentication("oidc-introspection-bearer");
-            services.AddJwtBearerAuthentication("oidc-jwt-bearer",(o)=> {
+            builder.AddJwtBearer("oidc-jwt-bearer", (o) =>
+            {
 
             });
+            builder.AddOAuth2IntrospectionAuthentication("oidc-introspection-bearer");
+          //  services.AddJwtBearerAuthentication();
              
 
-            return services.AddScheme<IdentityServerAuthenticationOptions, IdentityServerAuthenticationHandler>(authenticationScheme, configureOptions);
+            return builder.AddScheme<IdentityServerAuthenticationOptions, IdentityServerAuthenticationHandler>(authenticationScheme, configureOptions);
         }
 
         //public static IApplicationBuilder UseIdentityServerAuthentication(this IApplicationBuilder app)
