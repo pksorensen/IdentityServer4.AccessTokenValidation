@@ -50,12 +50,12 @@ namespace Microsoft.AspNetCore.Builder
                     if (token.Contains('.'))
                     {
                         // see if local validation is setup
-                        var result = await Context.AuthenticateAsync("oidc-jwt-bearer");
+                        var result = await Context.AuthenticateAsync(this.Scheme.Name+ "-oidc-jwt-bearer");
                         if (!result.None)
                             return result;
 
                         // otherwise use introspection endpoint
-                        result = await Context.AuthenticateAsync("oidc-introspection-bearer");
+                        result = await Context.AuthenticateAsync(this.Scheme.Name + "-oidc-introspection-bearer");
                         if (!result.None)
                             return result;
 
@@ -64,7 +64,7 @@ namespace Microsoft.AspNetCore.Builder
                     else
                     {
                         // use introspection endpoint
-                        var result = await Context.AuthenticateAsync("oidc-introspection-bearer");
+                        var result = await Context.AuthenticateAsync(this.Scheme.Name + "-oidc-introspection-bearer");
                         if (!result.None)
                             return result;
 

@@ -39,11 +39,11 @@ namespace Microsoft.AspNetCore.Builder
 
             builder.Services.Configure(configureOptions);
 
-            builder.AddJwtBearer("oidc-jwt-bearer", (o) =>
+            builder.AddJwtBearer(authenticationScheme+"-oidc-jwt-bearer", (o) =>
             {
 
             });
-            builder.AddOAuth2IntrospectionAuthentication("oidc-introspection-bearer");
+            builder.AddOAuth2IntrospectionAuthentication(authenticationScheme+"-oidc-introspection-bearer");
           //  services.AddJwtBearerAuthentication();
              
 
